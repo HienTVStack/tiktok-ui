@@ -3,9 +3,14 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import HeadLessTippy from '@tippyjs/react/headless';
 import classNames from 'classnames/bind';
 import { useEffect, useRef, useState } from 'react';
+import { useDebounce } from '~/hooks';
+
 import AccountItem from '~/components/AccountItem';
 import PopperWrapper from '~/components/Layout/components/Popper/Wrapper';
 import styles from './Search.module.scss';
+// import axios from 'axios';
+import * as request from '~/utils/request';
+import * as searchServices from '~/apiServices/searchServices';
 
 const cx = classNames.bind(styles);
 
@@ -15,30 +20,72 @@ function Search() {
     const [showResult, setShowResult] = useState(true);
     const [loading, setLoading] = useState(false);
 
+    const debounced = useDebounce(searchValue, 500);
+
     const inputRef = useRef();
 
     useEffect(() => {
         if (!searchValue.trim()) {
-            setSearchResult([]);
-            return;
+            if (!debounced.trim()) {
+                setSearchResult([]);
+                return;
+            }
         }
 
-        setLoading(true);
+        const fetchApi = async () => {
+            setLoading(true);
+            const result = await searchServices.search(debounced);
+            setSearchResult(result);
 
-        fetch(`https://tiktok.fullstack.edu.vn/api/users/search?q=${encodeURIComponent(searchValue)}&type=less`)
-            .then((res) => res.json())
-            .then((res) => {
-                setSearchResult(res.data);
-                setLoading(false);
-            })
-            .catch(() => {
-                setLoading(false);
-            });
-    }, [searchValue]);
+            setLoading(false);
+        };
+        // const fetchApi = async () => {
+        //     try {
+        //         const res = await request.get('users/search', {
+        //             params: {
+        //                 q: debounced,
+        //                 type: 'less',
+        //             },
+        //         });
+        //         setSearchResult(res.data);
+        //         setLoading(false);
+        //     } catch (error) {
+        //         setLoading(false);
+        //     }
+
+        // .then((res) => res.json())
+        // .then((res) => {
+        //     setSearchResult(res.data);
+        //     setLoading(false);
+        // })
+        // .catch(() => {
+        //     setLoading(false);
+        // });
+        // };
+        fetchApi();
+
+        // fetch(`https://tiktok.fullstack.edu.vn/api/users/search?q=${encodeURIComponent(debounced)}&type=less`)
+
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [debounced]);
+
+    const handleClear = () => {
+        setSearchValue('');
+        setSearchResult([]);
+        inputRef.current.focus();
+    };
 
     const handleHideSide = () => {
         setShowResult(false);
     };
+
+    const handleChange = (e) => {
+        const searchValue = e.target.value;
+        if (!searchValue.startsWith(' ')) {
+            setSearchValue(searchValue);
+        }
+    };
+
     return (
         <HeadLessTippy
             interactive
@@ -62,26 +109,18 @@ function Search() {
                     value={searchValue}
                     placeholder="Search accounts and videos"
                     spellCheck={false}
-                    onChange={(e) => {
-                        setSearchValue(e.target.value);
-                    }}
+                    // onChange={handleChange}
+                    onChange={handleChange}
                     onFocus={() => setShowResult(true)}
                 />
                 {!!searchValue && !loading && (
-                    <button
-                        className={cx('clear')}
-                        onClick={() => {
-                            setSearchValue('');
-                            setSearchResult([]);
-                            inputRef.current.focus();
-                        }}
-                    >
+                    <button className={cx('clear')} onClick={handleClear}>
                         <FontAwesomeIcon icon={faCircleXmark} />
                     </button>
                 )}
                 {loading && <FontAwesomeIcon className={cx('loading')} icon={faSpinner} />}
 
-                <span className={cx('search-btn')}>
+                <span className={cx('search-btn')} onMouseDown={(e) => e.preventDefault()}>
                     <FontAwesomeIcon icon={faMagnifyingGlass} />
                 </span>
             </div>
